@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+  <meta name="theme-color" content="#0a0a1a">
+  <title>Fix-It Felix Jr.</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+
+    body {
+      background: #0a0a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #game-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 480px;
+      height: 100dvh;
+      max-height: 900px;
+    }
+
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 6px 10px;
+      background: #0d0d22;
+      border-bottom: 2px solid #f1c40f;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .hud-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .hud-label {
+      font-size: 9px;
+      color: #888;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .hud-value {
+      font-size: 16px;
+      font-weight: bold;
+      color: #f1c40f;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px #f1c40f88;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .hud-lives {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .life-icon {
+      width: 14px;
+      height: 14px;
+      background: #e74c3c;
+      clip-path: polygon(50% 0%, 100% 35%, 100% 100%, 50% 70%, 0% 100%, 0% 35%);
+    }
+
+    .life-icon.empty { background: #333; }
+
+    canvas {
+      display: block;
+      flex: 1;
+      width: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    #controls {
+      display: flex;
+      width: 100%;
+      background: #0a0a16;
+      border-top: 2px solid #f1c40f22;
+      padding: 8px 12px;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 48px);
+      grid-template-rows: repeat(3, 48px);
+      gap: 3px;
+    }
+
+    .dpad-btn {
+      background: #1a1a2e;
+      border: 2px solid #f1c40f44;
+      border-radius: 8px;
+      color: #f1c40f;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.08s, transform 0.08s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: #f1c40f22;
+      border-color: #f1c40f;
+      transform: scale(0.92);
+    }
+
+    .dpad-center { background: transparent; border: none; pointer-events: none; }
+
+    #repair-btn {
+      width: 100px;
+      height: 100px;
+      background: radial-gradient(circle at 40% 35%, #f1c40f, #e67e22, #c0392b);
+      border: 3px solid #f1c40f;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 11px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 16px #f1c40f66, inset 0 2px 4px rgba(255,255,255,0.3);
+      transition: transform 0.08s, box-shadow 0.08s;
+      -webkit-tap-highlight-color: transparent;
+      gap: 2px;
+    }
+
+    #repair-btn:active, #repair-btn.pressed {
+      transform: scale(0.9);
+      box-shadow: 0 0 8px #f1c40f44;
+    }
+
+    #repair-btn .btn-icon { font-size: 28px; }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 16px;
+    }
+
+    #overlay.hidden { display: none; }
+
+    .overlay-title {
+      font-size: 28px;
+      font-weight: bold;
+      color: #f1c40f;
+      text-shadow: 0 0 20px #f1c40f, 2px 2px 0 #c0392b;
+      letter-spacing: 3px;
+      text-align: center;
+      animation: titlePulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes titlePulse {
+      0%,100% { text-shadow: 0 0 20px #f1c40f, 2px 2px 0 #c0392b; }
+      50% { text-shadow: 0 0 40px #f1c40f, 2px 2px 0 #c0392b, 0 0 60px #f1c40f66; }
+    }
+
+    .overlay-sub {
+      font-size: 13px;
+      color: #aaa;
+      text-align: center;
+      line-height: 1.8;
+      max-width: 280px;
+    }
+
+    .overlay-score {
+      font-size: 22px;
+      color: #fff;
+      letter-spacing: 2px;
+    }
+
+    .overlay-btn {
+      padding: 14px 40px;
+      background: #f1c40f;
+      color: #0a0a1a;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #c0392b;
+      transition: transform 0.08s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .overlay-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #c0392b; }
+
+    .pixel-star {
+      display: inline-block;
+      font-size: 24px;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #scanlines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.07) 3px,
+        rgba(0,0,0,0.07) 4px
+      );
+      z-index: 50;
+    }
+
+    @media (orientation: landscape) and (max-height: 500px) {
+      #controls { padding: 4px 12px; }
+      .dpad { grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); }
+      #repair-btn { width: 80px; height: 80px; }
+      #repair-btn .btn-icon { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="hud">
+    <div class="hud-group">
+      <div class="hud-label">PUNTOS</div>
+      <div class="hud-value" id="scoreEl">000000</div>
+    </div>
+    <div class="hud-group">
+      <div class="hud-label">VIDAS</div>
+      <div class="hud-lives" id="livesEl">
+        <div class="life-icon"></div>
+        <div class="life-icon"></div>
+        <div class="life-icon"></div>
+      </div>
+    </div>
+    <div class="hud-group">
+      <div class="hud-label">NIVEL</div>
+      <div class="hud-value" id="levelEl">01</div>
+    </div>
+  </div>
+
+  <canvas id="gc"></canvas>
+  <div id="scanlines"></div>
+
+  <div id="controls">
+    <div class="dpad">
+      <div></div>
+      <div class="dpad-btn" id="btnUp">▲</div>
+      <div></div>
+      <div class="dpad-btn" id="btnLeft">◀</div>
+      <div class="dpad-center"></div>
+      <div class="dpad-btn" id="btnRight">▶</div>
+      <div></div>
+      <div class="dpad-btn" id="btnDown">▼</div>
+      <div></div>
+    </div>
+    <button id="repair-btn">
+      <span class="btn-icon">🔨</span>
+      <span>REPAIR</span>
+    </button>
+  </div>
+
+  <div id="overlay">
+    <div class="pixel-star">✦</div>
+    <div class="overlay-title">FIX-IT FELIX JR.</div>
+    <div class="overlay-sub">
+      Repara ventanas · Esquiva ladrillos<br>
+      ¡Sube todos los pisos!
+    </div>
+    <button class="overlay-btn" id="startBtn">▶ JUGAR</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
+</body>
+</html>
